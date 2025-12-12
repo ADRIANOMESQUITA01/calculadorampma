@@ -29,7 +29,7 @@ section[data-testid="stSidebar"] {
 
 /* Reduzindo espaço vertical geral */
 .block-container {
-    padding-top: 0.6rem !important;
+    padding-top: 0.9rem !important;
     padding-bottom: 1.2rem !important;
     max-width: 900px !important;
 }

@@ -273,7 +273,7 @@ def tentar_converter_data(texto: str, nome_campo: str, chave_state: str) -> date
     Tenta converter a string em date.
     Se der erro:
       - mostra mensagem;
-      - limpa o campo (session_state[chave_state] = "");
+      - NÃO mexe no session_state (evita erro do Streamlit);
       - retorna None.
     """
     if not texto:
@@ -284,7 +284,6 @@ def tentar_converter_data(texto: str, nome_campo: str, chave_state: str) -> date
         return datetime.strptime(texto, "%d/%m/%Y").date()
     except ValueError:
         st.error(f"Data inválida no campo **{nome_campo}** — digite no formato dd/mm/aaaa.")
-        st.session_state[chave_state] = ""
         return None
 
 

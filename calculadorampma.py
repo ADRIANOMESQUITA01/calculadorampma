@@ -105,7 +105,7 @@ def selecionar_data(rotulo: str, valor_padrao: str, chave: str) -> date:
             const inputs = window.parent.document.querySelectorAll('input[placeholder="dd/mm/aaaa"]');
             if (!inputs.length) return;
             const campo = inputs[inputs.length - 1];  // último criado
-            if (campo.dataset.masked === "true") return; // evita adicionar mais de um listener
+            if (campo.dataset.masked === "true") return; // evita duplicar
 
             campo.dataset.masked = "true";
 
@@ -143,15 +143,16 @@ with st.sidebar:
     st.markdown(
         """
         ➤ Digite sempre no formato **dd/mm/aaaa**  
-        ➤ Escolha o tipo de cálculo:  
 
+        Tipos de cálculo:
         1. Diferença entre datas  
         2. Data final (início + dias)  
         3. Data inicial (final - dias)  
 
-        Há ainda:
+        Extras:
         - Botão **Copiar resultado**
         - **Histórico** com exportação CSV/Excel
+        - Botão **Limpar histórico**
         """
     )
 
@@ -316,21 +317,41 @@ if st.session_state["historico"]:
     df = pd.DataFrame(st.session_state["historico"])
     st.dataframe(df, use_container_width=True)
 
-    # EXPORTAÇÃO
+    # EXPORTAÇÃO CSV (sempre funciona)
     csv = df.to_csv(index=False).encode("utf-8")
+    col1, col2, col3 = st.columns(3)
 
-    excel = BytesIO()
-    df.to_excel(excel, index=False, sheet_name="Histórico")
-    excel.seek(0)
-
-    col1, col2 = st.columns(2)
     with col1:
-        st.download_button("⬇️ Baixar CSV", csv, "historico_calculadora_datas.csv")
-    with col2:
-        st.download_button("⬇️ Baixar Excel", excel, "historico_calculadora_datas.xlsx")
+        st.download_button(
+            "⬇️ Baixar CSV",
+            csv,
+            "historico_calculadora_datas.csv",
+            mime="text/csv",
+        )
 
-    if st.button("🧹 Limpar histórico"):
-        st.session_state["historico"] = []
-        st.success("Histórico limpo!")
+    # EXPORTAÇÃO EXCEL (com tratamento de erro)
+    with col2:
+        try:
+            excel = BytesIO()
+            df.to_excel(excel, index=False, sheet_name="Histórico")
+            excel.seek(0)
+            st.download_button(
+                "⬇️ Baixar Excel",
+                excel,
+                "historico_calculadora_datas.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        except ModuleNotFoundError:
+            st.warning(
+                "Para exportar em Excel (.xlsx), instale o pacote **openpyxl** "
+                "no ambiente (requirements.txt)."
+            )
+
+    # BOTÃO LIMPAR HISTÓRICO
+    with col3:
+        if st.button("🧹 Limpar histórico"):
+            st.session_state["historico"] = []
+            st.success("Histórico limpo!")
+
 else:
     st.info("Nenhum cálculo registrado.")

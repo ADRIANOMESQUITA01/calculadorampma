@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from io import BytesIO
 
 import pandas as pd
@@ -91,6 +91,44 @@ def botao_copiar(texto: str):
     )
 
 
+def selecionar_data(rotulo: str, data_padrao: date, chave: str) -> date:
+    """
+    Permite DIGITAR a data no formato dd/mm/aaaa
+    e/ou escolher a data num calendário.
+
+    Retorna sempre um objeto date válido.
+    """
+    col_txt, col_cal = st.columns([3, 2])
+
+    with col_txt:
+        texto = st.text_input(
+            f"{rotulo} (dd/mm/aaaa)",
+            value=data_padrao.strftime("%d/%m/%Y"),
+            key=f"{chave}_texto",
+        )
+
+    with col_cal:
+        data_calendario = st.date_input(
+            "Calendário",
+            value=data_padrao,
+            key=f"{chave}_calendario",
+        )
+
+    texto = texto.strip()
+    if texto:
+        try:
+            data_digitada = datetime.strptime(texto, "%d/%m/%Y").date()
+            return data_digitada
+        except ValueError:
+            st.warning(
+                f"Data digitada em **{rotulo}** é inválida. "
+                "Usando a data selecionada no calendário."
+            )
+            return data_calendario
+    else:
+        return data_calendario
+
+
 # ------------------------------- SIDEBAR -------------------------------- #
 
 with st.sidebar:
@@ -99,12 +137,12 @@ with st.sidebar:
         """
         Escolha o **tipo de cálculo** na tela principal:
 
-        1. Dias entre duas datas (de data a data)  
+        1. Dias entre duas datas  
         2. Data final (inicial + dias)  
         3. Data inicial (final - dias)
 
         ---
-        - Você pode **digitar a data** ou  
+        - Você pode **digitar a data (dd/mm/aaaa)** ou  
           **escolher no calendário**.
         - Use o botão **📋 Copiar resultado** para colar em outro lugar.
         - Abaixo da página há um **histórico** dos cálculos.
@@ -136,7 +174,7 @@ st.subheader("⚙️ Escolha o tipo de cálculo")
 opcao = st.radio(
     label="Selecione uma opção:",
     options=[
-        "1 - Quantidade de dias entre duas datas (de data a data)",
+        "1 - Quantidade de dias entre duas datas",
         "2 - Data final (data inicial + quantidade de dias)",
         "3 - Data inicial (data final - quantidade de dias)",
     ],
@@ -147,25 +185,35 @@ opcao = st.radio(
 st.divider()
 
 # -------------------------- OPÇÃO 1: DIFERENÇA -------------------------- #
-# Contagem de data a data: inclui a data inicial e a data final
-# Ex.: 01/01/2025 a 10/01/2025 = 10 dias
+# Permite escolher o tipo de contagem:
+# - De data a data (inclui inicial e final)
+# - Somente dias completos entre (exclui a data inicial)
 
 if opcao.startswith("1"):
-    st.markdown("### 1️⃣ Quantidade de dias entre duas datas (contagem de data a data)")
-    st.caption(
-        "Conta-se a data inicial e a data final. Exemplo: 01/01/2025 a 10/01/2025 = 10 dias."
+    st.markdown("### 1️⃣ Quantidade de dias entre duas datas")
+
+    modo_contagem = st.radio(
+        "Tipo de contagem:",
+        options=[
+            "De data a data (inclui a data inicial e a data final)",
+            "Somente dias completos entre as datas (exclui a data inicial)",
+        ],
+        index=0,
+        help=(
+            "Exemplo: 01/01/2025 a 10/01/2025\n"
+            "- De data a data = 10 dias\n"
+            "- Somente dias completos entre = 9 dias"
+        ),
     )
 
     col1, col2 = st.columns(2)
     with col1:
-        data_inicial = st.date_input(
-            "📅 Data inicial (digite ou escolha no calendário)",
-            value=date(2025, 1, 1),
+        data_inicial = selecionar_data(
+            "Data inicial", date(2025, 1, 1), "op1_data_inicial"
         )
     with col2:
-        data_final = st.date_input(
-            "📅 Data final (digite ou escolha no calendário)",
-            value=date(2025, 1, 10),
+        data_final = selecionar_data(
+            "Data final", date(2025, 1, 10), "op1_data_final"
         )
 
     st.divider()
@@ -173,32 +221,39 @@ if opcao.startswith("1"):
     if data_final < data_inicial:
         st.error("⚠️ A data final não pode ser anterior à data inicial.")
     else:
-        # 👇 Correção: contagem de data a data (inclui as duas pontas)
-        diferenca = (data_final - data_inicial).days + 1
+        diferenca_bruta = (data_final - data_inicial).days
+
+        if modo_contagem.startswith("De data a data"):
+            qtd_dias = diferenca_bruta + 1
+            descricao_modo = "de data a data (incluindo a data inicial e a data final)"
+        else:
+            qtd_dias = diferenca_bruta
+            descricao_modo = "somente dias completos entre as datas (excluindo a data inicial)"
 
         st.markdown("#### 📊 Resultado")
         st.markdown(f"- **Data inicial:** :blue[{formatar_data(data_inicial)}]")
         st.markdown(f"- **Data final:** :blue[{formatar_data(data_final)}]")
+        st.markdown(f"- **Modo de contagem:** `{descricao_modo}`")
         st.success(
-            f"📏 Quantidade de dias entre as datas (incluindo a inicial e a final): "
-            f"**{diferenca} dia(s)**"
+            f"📏 Quantidade de dias: **{qtd_dias} dia(s)**"
         )
 
         resultado_texto = (
-            "Cálculo: Diferença entre datas (de data a data)\n"
+            "Cálculo: Diferença entre datas\n"
+            f"Modo de contagem: {descricao_modo}\n"
             f"Data inicial: {formatar_data(data_inicial)}\n"
             f"Data final: {formatar_data(data_final)}\n"
-            f"Total de dias (incluindo as duas datas): {diferenca}"
+            f"Quantidade de dias: {qtd_dias}"
         )
         st.session_state["ultimo_resultado"] = resultado_texto
         botao_copiar(resultado_texto)
 
         registrar_calculo(
-            "Diferença entre datas (de data a data)",
+            f"Diferença entre datas ({descricao_modo})",
             data_inicial,
             data_final,
-            diferenca,
-            f"{diferenca} dia(s) de data a data",
+            qtd_dias,
+            f"{qtd_dias} dia(s) ({descricao_modo})",
         )
 
 # ------------------------ OPÇÃO 2: DATA FINAL --------------------------- #
@@ -212,9 +267,8 @@ elif opcao.startswith("2"):
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        data_inicial = st.date_input(
-            "📅 Data inicial (digite ou escolha no calendário)",
-            value=date(2025, 1, 1),
+        data_inicial = selecionar_data(
+            "Data inicial", date(2025, 1, 1), "op2_data_inicial"
         )
     with col2:
         qtd_dias = st.number_input(
@@ -262,9 +316,8 @@ else:
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        data_final = st.date_input(
-            "📅 Data final (digite ou escolha no calendário)",
-            value=date(2025, 1, 10),
+        data_final = selecionar_data(
+            "Data final", date(2025, 1, 10), "op3_data_final"
         )
     with col2:
         qtd_dias = st.number_input(

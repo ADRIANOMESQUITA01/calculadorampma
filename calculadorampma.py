@@ -18,29 +18,21 @@ st.set_page_config(
 
 CUSTOM_CSS = """
 <style>
-/* Fundo geral mais claro */
 body {
     background-color: #f3f4f6;
 }
-
-/* Container principal mais estreito e centralizado */
 section[data-testid="stSidebar"] {
     background-color: #0f172a !important;
 }
-
 .block-container {
     padding-top: 1.5rem !important;
     padding-bottom: 2rem !important;
     max-width: 900px !important;
 }
-
-/* Título principal */
 h2 {
     color: #111827;
     font-weight: 700;
 }
-
-/* Formulários em "cards" */
 div[data-testid="stForm"] {
     padding: 1rem 1.2rem;
     border-radius: 14px;
@@ -48,8 +40,6 @@ div[data-testid="stForm"] {
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
     border: 1px solid #e5e7eb;
 }
-
-/* Botões principais */
 .stButton > button {
     background: linear-gradient(135deg, #2563eb, #1d4ed8);
     color: white;
@@ -60,42 +50,28 @@ div[data-testid="stForm"] {
     font-size: 0.9rem;
     cursor: pointer;
 }
-
-/* Hover */
 .stButton > button:hover {
     background: linear-gradient(135deg, #1d4ed8, #1e40af);
 }
-
-/* Botão limpar histórico */
 button[kind="secondary"] {
     border-radius: 999px !important;
 }
-
-/* Radios mais bonitos */
 div[role="radiogroup"] > label {
     padding: 0.25rem 0.1rem;
 }
-
-/* Data inputs (texto) */
-input[placeholder="dd/mm/aaaa"] {
+input[data-adriano="data"] {
     border-radius: 10px;
     border: 1px solid #d1d5db;
     padding: 0.35rem 0.5rem;
 }
-
-/* Campos numéricos */
 input[type="number"] {
     border-radius: 10px;
 }
-
-/* Tabela do histórico */
 div[data-testid="stDataFrame"] {
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
-
-/* Mensagens */
 .stAlert {
     border-radius: 10px;
 }
@@ -117,7 +93,6 @@ WEEKDAYS_PT = [
 
 
 def formatar_data(d: date) -> str:
-    """Formata data como 01/01/2025 (quarta-feira)."""
     dia_semana = WEEKDAYS_PT[d.weekday()]
     return f"{d.strftime('%d/%m/%Y')} ({dia_semana})"
 
@@ -144,7 +119,6 @@ def registrar_calculo(tipo, data_inicial, data_final, qtd_dias, resumo):
 
 
 def botao_copiar(texto: str):
-    """Botão copiar para área de transferência."""
     if not texto:
         return
 
@@ -174,13 +148,9 @@ def botao_copiar(texto: str):
     )
 
 
-# ----- Função para escrever período em anos, meses e dias entre parênteses ---- #
+# --------- Período em anos, meses e dias (para mostrar entre parênteses) ------- #
 
 def periodo_anos_meses_dias(data_inicial: date, data_final: date, inclusivo: bool) -> str:
-    """
-    Retorna string do tipo: " (1 ano, 2 meses, 3 dias)".
-    Usa relativedelta se disponível; senão, aproxima por 365/30.
-    """
     if inclusivo:
         data_final_calc = data_final + timedelta(days=1)
     else:
@@ -208,49 +178,51 @@ def periodo_anos_meses_dias(data_inicial: date, data_final: date, inclusivo: boo
     return " (" + ", ".join(partes) + ")"
 
 
-# ------------- FUNÇÃO PARA DIGITAR DATA COM MÁSCARA dd/mm/aaaa -------- #
+# ---------------- CAMPO DE DATA COM MÁSCARA, SEM BUG DE RESET --------- #
 
 def selecionar_data(rotulo: str, valor_padrao: str, chave: str) -> date:
     """
     Campo de texto com máscara automática dd/mm/aaaa.
-    Converte o valor final para date e valida.
+    NÃO mexe manualmente em session_state além do que o Streamlit já faz.
+    Assim o valor digitado não volta para o exemplo.
     """
-
-    # Valor padrão só na primeira vez
-    if chave not in st.session_state:
-        st.session_state[chave] = valor_padrao
 
     texto = st.text_input(
         f"{rotulo} (dd/mm/aaaa)",
+        value=valor_padrao,
         key=chave,
         placeholder="dd/mm/aaaa",
+        label_visibility="visible",
     )
 
-    # Máscara JS aplicada ao ÚLTIMO input com esse placeholder
+    # Máscara associada a ESTE campo (usa data-adriano=chave para identificar)
     components.html(
-        """
+        f"""
         <script>
-        (function() {
-            const inputs = window.parent.document.querySelectorAll('input[placeholder="dd/mm/aaaa"]');
+        (function() {{
+            const frame = window.frameElement;
+            if (!frame) return;
+            const doc = frame.ownerDocument;
+            const inputs = doc.querySelectorAll('input[id="{chave}"]');
             if (!inputs.length) return;
-            const campo = inputs[inputs.length - 1];  // último criado
-            if (campo.dataset.masked === "true") return; // evita duplicar
-
+            const campo = inputs[0];
+            campo.setAttribute('data-adriano', 'data');
+            if (campo.dataset.masked === "true") return;
             campo.dataset.masked = "true";
 
-            campo.addEventListener('input', function() {
+            campo.addEventListener('input', function() {{
                 let v = campo.value.replace(/\\D/g, "").slice(0, 8);
                 let f = "";
-                if (v.length <= 2) {
+                if (v.length <= 2) {{
                     f = v;
-                } else if (v.length <= 4) {
+                }} else if (v.length <= 4) {{
                     f = v.slice(0,2) + "/" + v.slice(2);
-                } else {
+                }} else {{
                     f = v.slice(0,2) + "/" + v.slice(2,4) + "/" + v.slice(4);
-                }
+                }}
                 campo.value = f;
-            });
-        })();
+            }});
+        }})();
         </script>
         """,
         height=0,
@@ -342,36 +314,35 @@ if opcao.startswith("1"):
     if calcular:
         if data_final < data_inicial:
             st.error("A data final não pode ser anterior à inicial.")
-            st.stop()
-
-        dias_bruto = (data_final - data_inicial).days
-
-        if modo.startswith("De data a data"):
-            dias = dias_bruto + 1
-            descricao = "Contagem de data a data (inclui a data inicial e a final)"
-            inclusivo = True
         else:
-            dias = dias_bruto
-            descricao = "Somente dias completos entre as datas"
-            inclusivo = False
+            dias_bruto = (data_final - data_inicial).days
 
-        periodo_str = periodo_anos_meses_dias(data_inicial, data_final, inclusivo)
+            if modo.startswith("De data a data"):
+                dias = dias_bruto + 1
+                descricao = "Contagem de data a data (inclui a data inicial e a final)"
+                inclusivo = True
+            else:
+                dias = dias_bruto
+                descricao = "Somente dias completos entre as datas"
+                inclusivo = False
 
-        st.success(f"Total: **{dias} dia(s)**{periodo_str}")
-        st.write(f"- **Data inicial:** {formatar_data(data_inicial)}")
-        st.write(f"- **Data final:** {formatar_data(data_final)}")
-        st.write(f"- **Modo:** {descricao}")
+            periodo_str = periodo_anos_meses_dias(data_inicial, data_final, inclusivo)
 
-        resultado = (
-            f"Cálculo de diferença entre datas\n"
-            f"{descricao}\n"
-            f"Data inicial: {formatar_data(data_inicial)}\n"
-            f"Data final: {formatar_data(data_final)}\n"
-            f"Total de dias: {dias}{periodo_str}"
-        )
+            st.success(f"Total: **{dias} dia(s)**{periodo_str}")
+            st.write(f"- **Data inicial:** {formatar_data(data_inicial)}")
+            st.write(f"- **Data final:** {formatar_data(data_final)}")
+            st.write(f"- **Modo:** {descricao}")
 
-        botao_copiar(resultado)
-        registrar_calculo("Diferença entre datas", data_inicial, data_final, dias, descricao)
+            resultado = (
+                f"Cálculo de diferença entre datas\n"
+                f"{descricao}\n"
+                f"Data inicial: {formatar_data(data_inicial)}\n"
+                f"Data final: {formatar_data(data_final)}\n"
+                f"Total de dias: {dias}{periodo_str}"
+            )
+
+            botao_copiar(resultado)
+            registrar_calculo("Diferença entre datas", data_inicial, data_final, dias, descricao)
 
 # ======================================================================
 #                     OPÇÃO 2 – DATA FINAL
@@ -486,6 +457,5 @@ if st.session_state["historico"]:
         if st.button("🧹 Limpar histórico"):
             st.session_state["historico"] = []
             st.success("Histórico limpo!")
-
 else:
     st.info("Nenhum cálculo registrado.")

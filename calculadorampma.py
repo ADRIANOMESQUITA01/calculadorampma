@@ -40,36 +40,27 @@ if "ultimo_resultado" not in st.session_state:
     st.session_state["ultimo_resultado"] = ""
 
 
-def registrar_calculo(
-    tipo: str,
-    data_inicial: date | None,
-    data_final: date | None,
-    qtd_dias: int | None,
-    resultado_resumido: str,
-):
-    """Guarda o cálculo no histórico (para a tabela)."""
+def registrar_calculo(tipo, data_inicial, data_final, qtd_dias, resumo):
     st.session_state["historico"].append(
         {
             "Tipo": tipo,
             "Data inicial": data_inicial.strftime("%d/%m/%Y") if data_inicial else "",
             "Data final": data_final.strftime("%d/%m/%Y") if data_final else "",
-            "Qtd dias": qtd_dias if qtd_dias is not None else "",
-            "Resumo": resultado_resumido,
+            "Qtd dias": qtd_dias,
+            "Resumo": resumo,
         }
     )
 
 
 def botao_copiar(texto: str):
-    """Renderiza um botão que copia o resultado para a área de transferência."""
+    """Botão copiar para área de transferência."""
     if not texto:
         return
 
-    # Escapar caracteres problemáticos para o template literal em JS
     safe_text = (
         texto.replace("\\", "\\\\")
         .replace("`", "\\`")
         .replace("\n", "\\n")
-        .replace("\r", "")
     )
 
     components.html(
@@ -91,75 +82,86 @@ def botao_copiar(texto: str):
     )
 
 
-def selecionar_data(rotulo: str, data_padrao: date, chave: str) -> date:
+# ------------- FUNÇÃO PARA DIGITAR DATA COM MÁSCARA dd/mm/aaaa -------- #
+
+def selecionar_data(rotulo: str, valor_padrao: str, chave: str) -> date:
     """
-    Permite DIGITAR a data no formato dd/mm/aaaa
-    e/ou escolher a data num calendário.
-
-    Retorna sempre um objeto date válido.
+    Campo de texto com máscara automática dd/mm/aaaa.
+    Converte o valor final para date e valida.
     """
-    col_txt, col_cal = st.columns([3, 2])
 
-    with col_txt:
-        texto = st.text_input(
-            f"{rotulo} (dd/mm/aaaa)",
-            value=data_padrao.strftime("%d/%m/%Y"),
-            key=f"{chave}_texto",
-        )
+    texto = st.text_input(
+        f"{rotulo} (dd/mm/aaaa)",
+        value=valor_padrao,
+        key=chave,
+        placeholder="dd/mm/aaaa",
+    )
 
-    with col_cal:
-        data_calendario = st.date_input(
-            "Calendário",
-            value=data_padrao,
-            key=f"{chave}_calendario",
-        )
+    # Máscara JS aplicada ao ÚLTIMO input com esse placeholder
+    components.html(
+        """
+        <script>
+        (function() {
+            const inputs = window.parent.document.querySelectorAll('input[placeholder="dd/mm/aaaa"]');
+            if (!inputs.length) return;
+            const campo = inputs[inputs.length - 1];  // último criado
+            if (campo.dataset.masked === "true") return; // evita adicionar mais de um listener
+
+            campo.dataset.masked = "true";
+
+            campo.addEventListener('input', function() {
+                let v = campo.value.replace(/\\D/g, "").slice(0, 8);
+                let f = "";
+                if (v.length <= 2) {
+                    f = v;
+                } else if (v.length <= 4) {
+                    f = v.slice(0,2) + "/" + v.slice(2);
+                } else {
+                    f = v.slice(0,2) + "/" + v.slice(2,4) + "/" + v.slice(4);
+                }
+                campo.value = f;
+            });
+        })();
+        </script>
+        """,
+        height=0,
+        width=0,
+    )
 
     texto = texto.strip()
-    if texto:
-        try:
-            data_digitada = datetime.strptime(texto, "%d/%m/%Y").date()
-            return data_digitada
-        except ValueError:
-            st.warning(
-                f"Data digitada em **{rotulo}** é inválida. "
-                "Usando a data selecionada no calendário."
-            )
-            return data_calendario
-    else:
-        return data_calendario
+    try:
+        return datetime.strptime(texto, "%d/%m/%Y").date()
+    except ValueError:
+        st.error(f"Data inválida no campo **{rotulo}** — digite no formato dd/mm/aaaa.")
+        st.stop()
 
 
 # ------------------------------- SIDEBAR -------------------------------- #
 
 with st.sidebar:
-    st.title("🗓️ Calculadora")
+    st.title("🗓️ Calculadora de Datas")
     st.markdown(
         """
-        Escolha o **tipo de cálculo** na tela principal:
+        ➤ Digite sempre no formato **dd/mm/aaaa**  
+        ➤ Escolha o tipo de cálculo:  
 
-        1. Dias entre duas datas  
-        2. Data final (inicial + dias)  
-        3. Data inicial (final - dias)
+        1. Diferença entre datas  
+        2. Data final (início + dias)  
+        3. Data inicial (final - dias)  
 
-        ---
-        - Você pode **digitar a data (dd/mm/aaaa)** ou  
-          **escolher no calendário**.
-        - Use o botão **📋 Copiar resultado** para colar em outro lugar.
-        - Abaixo da página há um **histórico** dos cálculos.
+        Há ainda:
+        - Botão **Copiar resultado**
+        - **Histórico** com exportação CSV/Excel
         """
     )
-    st.caption("Dica: TAB navega entre os campos; ENTER confirma valores.")
-
 
 # ----------------------------- CABEÇALHO -------------------------------- #
 
 st.markdown(
     """
-    <div style="text-align:center; padding: 0.5rem 0;">
-        <h1 style="margin-bottom: 0;">🗓️ Calculadora de Datas</h1>
-        <p style="color:#555; margin-top: 0.2rem;">
-            Digite a data ou escolha no calendário e veja o resultado com dia da semana.
-        </p>
+    <div style="text-align:center;">
+        <h2>🗓️ Calculadora de Datas</h2>
+        <p>Campos com máscara automática para <b>dd/mm/aaaa</b>.</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -169,244 +171,166 @@ st.divider()
 
 # ----------------------------- MENU OPÇÕES ------------------------------ #
 
-st.subheader("⚙️ Escolha o tipo de cálculo")
-
 opcao = st.radio(
-    label="Selecione uma opção:",
-    options=[
+    "Selecione o tipo de cálculo:",
+    [
         "1 - Quantidade de dias entre duas datas",
         "2 - Data final (data inicial + quantidade de dias)",
         "3 - Data inicial (data final - quantidade de dias)",
-    ],
-    index=0,
-    help="Clique na opção desejada para exibir os campos correspondentes.",
+    ]
 )
 
 st.divider()
 
-# -------------------------- OPÇÃO 1: DIFERENÇA -------------------------- #
-# Permite escolher o tipo de contagem:
-# - De data a data (inclui inicial e final)
-# - Somente dias completos entre (exclui a data inicial)
+# ======================================================================
+#                         OPÇÃO 1 – DIFERENÇA DE DATAS
+# ======================================================================
 
 if opcao.startswith("1"):
-    st.markdown("### 1️⃣ Quantidade de dias entre duas datas")
 
-    modo_contagem = st.radio(
-        "Tipo de contagem:",
-        options=[
-            "De data a data (inclui a data inicial e a data final)",
-            "Somente dias completos entre as datas (exclui a data inicial)",
-        ],
-        index=0,
-        help=(
-            "Exemplo: 01/01/2025 a 10/01/2025\n"
-            "- De data a data = 10 dias\n"
-            "- Somente dias completos entre = 9 dias"
-        ),
+    st.subheader("Diferença entre datas")
+
+    modo = st.radio(
+        "Modo de contagem:",
+        [
+            "De data a data (inclui data inicial e final)",
+            "Somente dias completos entre as datas",
+        ]
     )
 
     col1, col2 = st.columns(2)
+
     with col1:
         data_inicial = selecionar_data(
-            "Data inicial", date(2025, 1, 1), "op1_data_inicial"
+            "Data inicial", "01/01/2025", "data_inicial_op1"
         )
     with col2:
         data_final = selecionar_data(
-            "Data final", date(2025, 1, 10), "op1_data_final"
+            "Data final", "10/01/2025", "data_final_op1"
         )
-
-    st.divider()
 
     if data_final < data_inicial:
-        st.error("⚠️ A data final não pode ser anterior à data inicial.")
+        st.error("A data final não pode ser anterior à inicial.")
+        st.stop()
+
+    dias_bruto = (data_final - data_inicial).days
+
+    if modo.startswith("De data a data"):
+        dias = dias_bruto + 1
+        descricao = "Contagem de data a data (incluindo a data inicial e a data final)"
     else:
-        diferenca_bruta = (data_final - data_inicial).days
+        dias = dias_bruto
+        descricao = "Somente dias completos entre as datas (exclui a data inicial)"
 
-        if modo_contagem.startswith("De data a data"):
-            qtd_dias = diferenca_bruta + 1
-            descricao_modo = "de data a data (incluindo a data inicial e a data final)"
-        else:
-            qtd_dias = diferenca_bruta
-            descricao_modo = "somente dias completos entre as datas (excluindo a data inicial)"
+    st.markdown(f"- **Data inicial:** {formatar_data(data_inicial)}")
+    st.markdown(f"- **Data final:** {formatar_data(data_final)}")
+    st.markdown(f"- **Modo de contagem:** {descricao}")
+    st.success(f"Total: **{dias} dia(s)**")
 
-        st.markdown("#### 📊 Resultado")
-        st.markdown(f"- **Data inicial:** :blue[{formatar_data(data_inicial)}]")
-        st.markdown(f"- **Data final:** :blue[{formatar_data(data_final)}]")
-        st.markdown(f"- **Modo de contagem:** `{descricao_modo}`")
-        st.success(
-            f"📏 Quantidade de dias: **{qtd_dias} dia(s)**"
-        )
+    resultado = (
+        f"Cálculo de diferença entre datas\n"
+        f"{descricao}\n"
+        f"Data inicial: {formatar_data(data_inicial)}\n"
+        f"Data final: {formatar_data(data_final)}\n"
+        f"Total de dias: {dias}"
+    )
 
-        resultado_texto = (
-            "Cálculo: Diferença entre datas\n"
-            f"Modo de contagem: {descricao_modo}\n"
-            f"Data inicial: {formatar_data(data_inicial)}\n"
-            f"Data final: {formatar_data(data_final)}\n"
-            f"Quantidade de dias: {qtd_dias}"
-        )
-        st.session_state["ultimo_resultado"] = resultado_texto
-        botao_copiar(resultado_texto)
+    botao_copiar(resultado)
 
-        registrar_calculo(
-            f"Diferença entre datas ({descricao_modo})",
-            data_inicial,
-            data_final,
-            qtd_dias,
-            f"{qtd_dias} dia(s) ({descricao_modo})",
-        )
+    registrar_calculo("Diferença entre datas", data_inicial, data_final, dias, descricao)
 
-# ------------------------ OPÇÃO 2: DATA FINAL --------------------------- #
+# ======================================================================
+#                     OPÇÃO 2 – DATA FINAL
+# ======================================================================
 
 elif opcao.startswith("2"):
-    st.markdown("### 2️⃣ Data final (data inicial + quantidade de dias)")
-    st.caption(
-        "Informe a **data inicial** e a **quantidade de dias** a adicionar. "
-        "A data final será calculada automaticamente."
-    )
 
-    col1, col2 = st.columns([2, 1])
+    st.subheader("Data final (data inicial + dias)")
+
+    col1, col2 = st.columns(2)
+
     with col1:
-        data_inicial = selecionar_data(
-            "Data inicial", date(2025, 1, 1), "op2_data_inicial"
-        )
+        data_inicial = selecionar_data("Data inicial", "01/01/2025", "data_inicial_op2")
+
     with col2:
-        qtd_dias = st.number_input(
-            "➕ Dias a adicionar",
-            min_value=0,
-            step=1,
-            value=9,
-            help="Use números inteiros (0, 1, 2, 3...).",
-        )
+        qtd = st.number_input("Dias a adicionar:", min_value=0, value=9, step=1)
 
-    data_final = data_inicial + timedelta(days=int(qtd_dias))
+    data_final = data_inicial + timedelta(days=int(qtd))
 
-    st.divider()
+    st.markdown(f"- **Data inicial:** {formatar_data(data_inicial)}")
+    st.markdown(f"- **Dias adicionados:** {int(qtd)}")
+    st.success(f"Data final: **{formatar_data(data_final)}**")
 
-    st.markdown("#### 📊 Resultado")
-    st.markdown(f"- **Data inicial:** :green[{formatar_data(data_inicial)}]")
-    st.markdown(f"- **Dias adicionados:** :green[{int(qtd_dias)}]")
-    st.success(f"📅 **Data final:** {formatar_data(data_final)}")
-
-    resultado_texto = (
-        "Cálculo: Data final (data inicial + dias)\n"
+    resultado = (
+        f"Data final (início + dias)\n"
         f"Data inicial: {formatar_data(data_inicial)}\n"
-        f"Dias adicionados: {int(qtd_dias)}\n"
+        f"Dias adicionados: {int(qtd)}\n"
         f"Data final: {formatar_data(data_final)}"
     )
-    st.session_state["ultimo_resultado"] = resultado_texto
-    botao_copiar(resultado_texto)
 
-    registrar_calculo(
-        "Data final (inicial + dias)",
-        data_inicial,
-        data_final,
-        int(qtd_dias),
-        f"Final: {data_final.strftime('%d/%m/%Y')}",
-    )
+    botao_copiar(resultado)
 
-# ------------------------ OPÇÃO 3: DATA INICIAL ------------------------- #
+    registrar_calculo("Data final (início + dias)", data_inicial, data_final, int(qtd), "Somatório")
+
+# ======================================================================
+#                     OPÇÃO 3 – DATA INICIAL
+# ======================================================================
 
 else:
-    st.markdown("### 3️⃣ Data inicial (data final - quantidade de dias)")
-    st.caption(
-        "Informe a **data final** e a **quantidade de dias** a subtrair. "
-        "A data inicial será calculada automaticamente."
-    )
 
-    col1, col2 = st.columns([2, 1])
+    st.subheader("Data inicial (data final - dias)")
+
+    col1, col2 = st.columns(2)
+
     with col1:
-        data_final = selecionar_data(
-            "Data final", date(2025, 1, 10), "op3_data_final"
-        )
+        data_final = selecionar_data("Data final", "10/01/2025", "data_final_op3")
+
     with col2:
-        qtd_dias = st.number_input(
-            "➖ Dias a subtrair",
-            min_value=0,
-            step=1,
-            value=9,
-            help="Use números inteiros (0, 1, 2, 3...).",
-        )
+        qtd = st.number_input("Dias a subtrair:", min_value=0, value=9, step=1)
 
-    data_inicial = data_final - timedelta(days=int(qtd_dias))
+    data_inicial = data_final - timedelta(days=int(qtd))
 
-    st.divider()
+    st.markdown(f"- **Data final:** {formatar_data(data_final)}")
+    st.markdown(f"- **Dias subtraídos:** {int(qtd)}")
+    st.success(f"Data inicial: **{formatar_data(data_inicial)}**")
 
-    st.markdown("#### 📊 Resultado")
-    st.markdown(f"- **Data final:** :orange[{formatar_data(data_final)}]")
-    st.markdown(f"- **Dias subtraídos:** :orange[{int(qtd_dias)}]")
-    st.success(f"📅 **Data inicial:** {formatar_data(data_inicial)}")
-
-    resultado_texto = (
-        "Cálculo: Data inicial (data final - dias)\n"
+    resultado = (
+        f"Data inicial (final - dias)\n"
         f"Data final: {formatar_data(data_final)}\n"
-        f"Dias subtraídos: {int(qtd_dias)}\n"
+        f"Dias subtraídos: {int(qtd)}\n"
         f"Data inicial: {formatar_data(data_inicial)}"
     )
-    st.session_state["ultimo_resultado"] = resultado_texto
-    botao_copiar(resultado_texto)
 
-    registrar_calculo(
-        "Data inicial (final - dias)",
-        data_inicial,
-        data_final,
-        int(qtd_dias),
-        f"Inicial: {data_inicial.strftime('%d/%m/%Y')}",
-    )
+    botao_copiar(resultado)
 
-# ----------------------------- HISTÓRICO -------------------------------- #
+    registrar_calculo("Data inicial (final - dias)", data_inicial, data_final, int(qtd), "Subtração")
+
+# ======================================================================
+#                          HISTÓRICO
+# ======================================================================
 
 st.divider()
+st.subheader("📜 Histórico")
+
 if st.session_state["historico"]:
-    st.markdown("### 🧾 Histórico de cálculos")
-    st.caption(
-        "Os cálculos desta sessão ficam registrados aqui. "
-        "Você pode exportar ou limpar o histórico."
-    )
+    df = pd.DataFrame(st.session_state["historico"])
+    st.dataframe(df, use_container_width=True)
 
-    df_hist = pd.DataFrame(st.session_state["historico"])
+    # EXPORTAÇÃO
+    csv = df.to_csv(index=False).encode("utf-8")
 
-    col_info, col_limpar = st.columns([3, 1])
-    with col_info:
-        st.write(f"Total de registros: **{len(df_hist)}**")
-    with col_limpar:
-        if st.button("🧹 Limpar histórico"):
-            st.session_state["historico"] = []
-            st.success("Histórico limpo com sucesso!")
-            st.stop()
+    excel = BytesIO()
+    df.to_excel(excel, index=False, sheet_name="Histórico")
+    excel.seek(0)
 
-    if st.session_state["historico"]:
-        df_hist = pd.DataFrame(st.session_state["historico"])
-        st.dataframe(df_hist, use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button("⬇️ Baixar CSV", csv, "historico_calculadora_datas.csv")
+    with col2:
+        st.download_button("⬇️ Baixar Excel", excel, "historico_calculadora_datas.xlsx")
 
-        # CSV em memória
-        csv_bytes = df_hist.to_csv(index=False).encode("utf-8")
-
-        # Excel em memória
-        excel_buffer = BytesIO()
-        df_hist.to_excel(excel_buffer, index=False, sheet_name="Histórico")
-        excel_buffer.seek(0)
-
-        col_csv, col_xlsx = st.columns(2)
-        with col_csv:
-            st.download_button(
-                label="⬇️ Baixar histórico em CSV",
-                data=csv_bytes,
-                file_name="historico_calculadora_datas.csv",
-                mime="text/csv",
-            )
-        with col_xlsx:
-            st.download_button(
-                label="⬇️ Baixar histórico em Excel",
-                data=excel_buffer,
-                file_name="historico_calculadora_datas.xlsx",
-                mime=(
-                    "application/vnd.openxmlformats-"
-                    "officedocument.spreadsheetml.sheet"
-                ),
-            )
+    if st.button("🧹 Limpar histórico"):
+        st.session_state["historico"] = []
+        st.success("Histórico limpo!")
 else:
-    st.caption(
-        "Nenhum cálculo registrado ainda. "
-        "Faça um cálculo para ver o histórico aqui embaixo."
-    )
+    st.info("Nenhum cálculo registrado.")

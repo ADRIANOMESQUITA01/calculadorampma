@@ -26,6 +26,7 @@ WEEKDAYS_PT = [
 
 
 def formatar_data(d: date) -> str:
+    """Formata data como 01/01/2025 (quarta-feira)."""
     dia_semana = WEEKDAYS_PT[d.weekday()]
     return f"{d.strftime('%d/%m/%Y')} ({dia_semana})"
 
@@ -98,7 +99,7 @@ with st.sidebar:
         """
         Escolha o **tipo de cálculo** na tela principal:
 
-        1. Dias entre duas datas  
+        1. Dias entre duas datas (de data a data)  
         2. Data final (inicial + dias)  
         3. Data inicial (final - dias)
 
@@ -135,7 +136,7 @@ st.subheader("⚙️ Escolha o tipo de cálculo")
 opcao = st.radio(
     label="Selecione uma opção:",
     options=[
-        "1 - Quantidade de dias entre duas datas",
+        "1 - Quantidade de dias entre duas datas (de data a data)",
         "2 - Data final (data inicial + quantidade de dias)",
         "3 - Data inicial (data final - quantidade de dias)",
     ],
@@ -146,12 +147,13 @@ opcao = st.radio(
 st.divider()
 
 # -------------------------- OPÇÃO 1: DIFERENÇA -------------------------- #
+# Contagem de data a data: inclui a data inicial e a data final
+# Ex.: 01/01/2025 a 10/01/2025 = 10 dias
 
 if opcao.startswith("1"):
-    st.markdown("### 1️⃣ Quantidade de dias entre duas datas")
+    st.markdown("### 1️⃣ Quantidade de dias entre duas datas (contagem de data a data)")
     st.caption(
-        "Informe a **data inicial** e a **data final**. "
-        "Você pode digitar a data ou selecionar no calendário."
+        "Conta-se a data inicial e a data final. Exemplo: 01/01/2025 a 10/01/2025 = 10 dias."
     )
 
     col1, col2 = st.columns(2)
@@ -171,28 +173,32 @@ if opcao.startswith("1"):
     if data_final < data_inicial:
         st.error("⚠️ A data final não pode ser anterior à data inicial.")
     else:
-        diferenca = (data_final - data_inicial).days
+        # 👇 Correção: contagem de data a data (inclui as duas pontas)
+        diferenca = (data_final - data_inicial).days + 1
 
         st.markdown("#### 📊 Resultado")
         st.markdown(f"- **Data inicial:** :blue[{formatar_data(data_inicial)}]")
         st.markdown(f"- **Data final:** :blue[{formatar_data(data_final)}]")
-        st.success(f"📏 Quantidade de dias entre as datas: **{diferenca} dia(s)**")
+        st.success(
+            f"📏 Quantidade de dias entre as datas (incluindo a inicial e a final): "
+            f"**{diferenca} dia(s)**"
+        )
 
         resultado_texto = (
-            "Cálculo: Diferença entre datas\n"
+            "Cálculo: Diferença entre datas (de data a data)\n"
             f"Data inicial: {formatar_data(data_inicial)}\n"
             f"Data final: {formatar_data(data_final)}\n"
-            f"Diferença em dias: {diferenca}"
+            f"Total de dias (incluindo as duas datas): {diferenca}"
         )
         st.session_state["ultimo_resultado"] = resultado_texto
         botao_copiar(resultado_texto)
 
         registrar_calculo(
-            "Diferença entre datas",
+            "Diferença entre datas (de data a data)",
             data_inicial,
             data_final,
             diferenca,
-            f"{diferenca} dia(s) entre as datas",
+            f"{diferenca} dia(s) de data a data",
         )
 
 # ------------------------ OPÇÃO 2: DATA FINAL --------------------------- #

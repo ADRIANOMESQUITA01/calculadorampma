@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 # ------------------------- CONFIGURAÇÃO BÁSICA ------------------------- #
 
 st.set_page_config(
-    page_title="Calculadora de Datas",
+    page_title="Calculadora de Datas da Vovó",
     page_icon="🗓️",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -29,7 +29,7 @@ section[data-testid="stSidebar"] {
 
 /* Reduzindo espaço vertical geral */
 .block-container {
-    padding-top: 0.3rem !important;
+    padding-top: 0.1rem !important;
     padding-bottom: 1.2rem !important;
     max-width: 900px !important;
 }

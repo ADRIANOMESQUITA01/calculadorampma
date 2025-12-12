@@ -14,6 +14,97 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ------------------------------ ESTILO CSS ----------------------------- #
+
+CUSTOM_CSS = """
+<style>
+/* Fundo geral mais claro */
+body {
+    background-color: #f3f4f6;
+}
+
+/* Container principal mais estreito e centralizado */
+section[data-testid="stSidebar"] {
+    background-color: #0f172a !important;
+}
+
+.block-container {
+    padding-top: 1.5rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 900px !important;
+}
+
+/* Título principal */
+h2 {
+    color: #111827;
+    font-weight: 700;
+}
+
+/* Formulários em "cards" */
+div[data-testid="stForm"] {
+    padding: 1rem 1.2rem;
+    border-radius: 14px;
+    background-color: #ffffff;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+    border: 1px solid #e5e7eb;
+}
+
+/* Botões principais */
+.stButton > button {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: white;
+    border-radius: 999px;
+    border: none;
+    padding: 0.45rem 1.4rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Hover */
+.stButton > button:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+}
+
+/* Botão limpar histórico */
+button[kind="secondary"] {
+    border-radius: 999px !important;
+}
+
+/* Radios mais bonitos */
+div[role="radiogroup"] > label {
+    padding: 0.25rem 0.1rem;
+}
+
+/* Data inputs (texto) */
+input[placeholder="dd/mm/aaaa"] {
+    border-radius: 10px;
+    border: 1px solid #d1d5db;
+    padding: 0.35rem 0.5rem;
+}
+
+/* Campos numéricos */
+input[type="number"] {
+    border-radius: 10px;
+}
+
+/* Tabela do histórico */
+div[data-testid="stDataFrame"] {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+/* Mensagens */
+.stAlert {
+    border-radius: 10px;
+}
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
+# --------------------------- CONSTANTES -------------------------------- #
+
 WEEKDAYS_PT = [
     "segunda-feira",
     "terça-feira",
@@ -69,17 +160,52 @@ def botao_copiar(texto: str):
                 style="
                     margin-top:8px;
                     padding:6px 12px;
-                    border-radius:6px;
+                    border-radius:999px;
                     border:none;
-                    background-color:#4CAF50;
+                    background:linear-gradient(135deg,#16a34a,#15803d);
                     color:white;
                     cursor:pointer;
+                    font-weight:600;
                 ">
             📋 Copiar resultado
         </button>
         """,
         height=60,
     )
+
+
+# ----- Função para escrever período em anos, meses e dias entre parênteses ---- #
+
+def periodo_anos_meses_dias(data_inicial: date, data_final: date, inclusivo: bool) -> str:
+    """
+    Retorna string do tipo: " (1 ano, 2 meses, 3 dias)".
+    Usa relativedelta se disponível; senão, aproxima por 365/30.
+    """
+    if inclusivo:
+        data_final_calc = data_final + timedelta(days=1)
+    else:
+        data_final_calc = data_final
+
+    try:
+        from dateutil.relativedelta import relativedelta
+        rd = relativedelta(data_final_calc, data_inicial)
+        anos, meses, dias = rd.years, rd.months, rd.days
+    except ModuleNotFoundError:
+        total_dias = (data_final_calc - data_inicial).days
+        anos = total_dias // 365
+        resto = total_dias % 365
+        meses = resto // 30
+        dias = resto % 30
+
+    partes = []
+    if anos:
+        partes.append(f"{anos} ano{'s' if anos != 1 else ''}")
+    if meses:
+        partes.append(f"{meses} mês{'es' if meses != 1 else ''}")
+    if dias or not partes:
+        partes.append(f"{dias} dia{'s' if dias != 1 else ''}")
+
+    return " (" + ", ".join(partes) + ")"
 
 
 # ------------- FUNÇÃO PARA DIGITAR DATA COM MÁSCARA dd/mm/aaaa -------- #
@@ -90,9 +216,12 @@ def selecionar_data(rotulo: str, valor_padrao: str, chave: str) -> date:
     Converte o valor final para date e valida.
     """
 
+    # Valor padrão só na primeira vez
+    if chave not in st.session_state:
+        st.session_state[chave] = valor_padrao
+
     texto = st.text_input(
         f"{rotulo} (dd/mm/aaaa)",
-        value=valor_padrao,
         key=chave,
         placeholder="dd/mm/aaaa",
     )
@@ -144,12 +273,12 @@ with st.sidebar:
         """
         ➤ Digite sempre no formato **dd/mm/aaaa**  
 
-        Tipos de cálculo:
+        **Tipos de cálculo**
         1. Diferença entre datas  
         2. Data final (início + dias)  
         3. Data inicial (final - dias)  
 
-        Extras:
+        **Extras**
         - Botão **Copiar resultado**
         - **Histórico** com exportação CSV/Excel
         - Botão **Limpar histórico**
@@ -160,9 +289,11 @@ with st.sidebar:
 
 st.markdown(
     """
-    <div style="text-align:center;">
+    <div style="text-align:center; margin-bottom: 0.5rem;">
         <h2>🗓️ Calculadora de Datas</h2>
-        <p>Campos com máscara automática para <b>dd/mm/aaaa</b>.</p>
+        <p style="color:#4b5563; margin-top:0.2rem;">
+            Digite as datas, escolha o tipo de cálculo e clique em <b>CALCULAR</b>.
+        </p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -191,54 +322,56 @@ if opcao.startswith("1"):
 
     st.subheader("Diferença entre datas")
 
-    modo = st.radio(
-        "Modo de contagem:",
-        [
-            "De data a data (inclui data inicial e final)",
-            "Somente dias completos entre as datas",
-        ]
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        data_inicial = selecionar_data(
-            "Data inicial", "01/01/2025", "data_inicial_op1"
-        )
-    with col2:
-        data_final = selecionar_data(
-            "Data final", "10/01/2025", "data_final_op1"
+    with st.form("form_op1"):
+        modo = st.radio(
+            "Modo de contagem:",
+            [
+                "De data a data (inclui data inicial e final)",
+                "Somente dias completos entre as datas",
+            ]
         )
 
-    if data_final < data_inicial:
-        st.error("A data final não pode ser anterior à inicial.")
-        st.stop()
+        col1, col2 = st.columns(2)
+        with col1:
+            data_inicial = selecionar_data("Data inicial", "01/01/2025", "data_inicial_op1")
+        with col2:
+            data_final = selecionar_data("Data final", "10/01/2025", "data_final_op1")
 
-    dias_bruto = (data_final - data_inicial).days
+        calcular = st.form_submit_button("🔵 CALCULAR")
 
-    if modo.startswith("De data a data"):
-        dias = dias_bruto + 1
-        descricao = "Contagem de data a data (incluindo a data inicial e a data final)"
-    else:
-        dias = dias_bruto
-        descricao = "Somente dias completos entre as datas (exclui a data inicial)"
+    if calcular:
+        if data_final < data_inicial:
+            st.error("A data final não pode ser anterior à inicial.")
+            st.stop()
 
-    st.markdown(f"- **Data inicial:** {formatar_data(data_inicial)}")
-    st.markdown(f"- **Data final:** {formatar_data(data_final)}")
-    st.markdown(f"- **Modo de contagem:** {descricao}")
-    st.success(f"Total: **{dias} dia(s)**")
+        dias_bruto = (data_final - data_inicial).days
 
-    resultado = (
-        f"Cálculo de diferença entre datas\n"
-        f"{descricao}\n"
-        f"Data inicial: {formatar_data(data_inicial)}\n"
-        f"Data final: {formatar_data(data_final)}\n"
-        f"Total de dias: {dias}"
-    )
+        if modo.startswith("De data a data"):
+            dias = dias_bruto + 1
+            descricao = "Contagem de data a data (inclui a data inicial e a final)"
+            inclusivo = True
+        else:
+            dias = dias_bruto
+            descricao = "Somente dias completos entre as datas"
+            inclusivo = False
 
-    botao_copiar(resultado)
+        periodo_str = periodo_anos_meses_dias(data_inicial, data_final, inclusivo)
 
-    registrar_calculo("Diferença entre datas", data_inicial, data_final, dias, descricao)
+        st.success(f"Total: **{dias} dia(s)**{periodo_str}")
+        st.write(f"- **Data inicial:** {formatar_data(data_inicial)}")
+        st.write(f"- **Data final:** {formatar_data(data_final)}")
+        st.write(f"- **Modo:** {descricao}")
+
+        resultado = (
+            f"Cálculo de diferença entre datas\n"
+            f"{descricao}\n"
+            f"Data inicial: {formatar_data(data_inicial)}\n"
+            f"Data final: {formatar_data(data_final)}\n"
+            f"Total de dias: {dias}{periodo_str}"
+        )
+
+        botao_copiar(resultado)
+        registrar_calculo("Diferença entre datas", data_inicial, data_final, dias, descricao)
 
 # ======================================================================
 #                     OPÇÃO 2 – DATA FINAL
@@ -248,30 +381,32 @@ elif opcao.startswith("2"):
 
     st.subheader("Data final (data inicial + dias)")
 
-    col1, col2 = st.columns(2)
+    with st.form("form_op2"):
+        col1, col2 = st.columns(2)
+        with col1:
+            data_inicial = selecionar_data("Data inicial", "01/01/2025", "data_inicial_op2")
+        with col2:
+            qtd = st.number_input("Dias a adicionar:", min_value=0, value=9, step=1)
 
-    with col1:
-        data_inicial = selecionar_data("Data inicial", "01/01/2025", "data_inicial_op2")
+        calcular = st.form_submit_button("🔵 CALCULAR")
 
-    with col2:
-        qtd = st.number_input("Dias a adicionar:", min_value=0, value=9, step=1)
+    if calcular:
+        data_final = data_inicial + timedelta(days=int(qtd))
+        periodo_str = periodo_anos_meses_dias(data_inicial, data_final, inclusivo=False)
 
-    data_final = data_inicial + timedelta(days=int(qtd))
+        st.success(f"Data final: **{formatar_data(data_final)}**")
+        st.write(f"- Dias adicionados: {int(qtd)}{periodo_str}")
+        st.write(f"- Data inicial: {formatar_data(data_inicial)}")
 
-    st.markdown(f"- **Data inicial:** {formatar_data(data_inicial)}")
-    st.markdown(f"- **Dias adicionados:** {int(qtd)}")
-    st.success(f"Data final: **{formatar_data(data_final)}**")
+        resultado = (
+            f"Data final (início + dias)\n"
+            f"Data inicial: {formatar_data(data_inicial)}\n"
+            f"Dias adicionados: {int(qtd)}{periodo_str}\n"
+            f"Data final: {formatar_data(data_final)}"
+        )
 
-    resultado = (
-        f"Data final (início + dias)\n"
-        f"Data inicial: {formatar_data(data_inicial)}\n"
-        f"Dias adicionados: {int(qtd)}\n"
-        f"Data final: {formatar_data(data_final)}"
-    )
-
-    botao_copiar(resultado)
-
-    registrar_calculo("Data final (início + dias)", data_inicial, data_final, int(qtd), "Somatório")
+        botao_copiar(resultado)
+        registrar_calculo("Data final (início + dias)", data_inicial, data_final, int(qtd), "Somatório")
 
 # ======================================================================
 #                     OPÇÃO 3 – DATA INICIAL
@@ -281,30 +416,32 @@ else:
 
     st.subheader("Data inicial (data final - dias)")
 
-    col1, col2 = st.columns(2)
+    with st.form("form_op3"):
+        col1, col2 = st.columns(2)
+        with col1:
+            data_final = selecionar_data("Data final", "10/01/2025", "data_final_op3")
+        with col2:
+            qtd = st.number_input("Dias a subtrair:", min_value=0, value=9, step=1)
 
-    with col1:
-        data_final = selecionar_data("Data final", "10/01/2025", "data_final_op3")
+        calcular = st.form_submit_button("🔵 CALCULAR")
 
-    with col2:
-        qtd = st.number_input("Dias a subtrair:", min_value=0, value=9, step=1)
+    if calcular:
+        data_inicial = data_final - timedelta(days=int(qtd))
+        periodo_str = periodo_anos_meses_dias(data_inicial, data_final, inclusivo=False)
 
-    data_inicial = data_final - timedelta(days=int(qtd))
+        st.success(f"Data inicial: **{formatar_data(data_inicial)}**")
+        st.write(f"- Dias subtraídos: {int(qtd)}{periodo_str}")
+        st.write(f"- Data final: {formatar_data(data_final)}")
 
-    st.markdown(f"- **Data final:** {formatar_data(data_final)}")
-    st.markdown(f"- **Dias subtraídos:** {int(qtd)}")
-    st.success(f"Data inicial: **{formatar_data(data_inicial)}**")
+        resultado = (
+            f"Data inicial (final - dias)\n"
+            f"Data final: {formatar_data(data_final)}\n"
+            f"Dias subtraídos: {int(qtd)}{periodo_str}\n"
+            f"Data inicial: {formatar_data(data_inicial)}"
+        )
 
-    resultado = (
-        f"Data inicial (final - dias)\n"
-        f"Data final: {formatar_data(data_final)}\n"
-        f"Dias subtraídos: {int(qtd)}\n"
-        f"Data inicial: {formatar_data(data_inicial)}"
-    )
-
-    botao_copiar(resultado)
-
-    registrar_calculo("Data inicial (final - dias)", data_inicial, data_final, int(qtd), "Subtração")
+        botao_copiar(resultado)
+        registrar_calculo("Data inicial (final - dias)", data_inicial, data_final, int(qtd), "Subtração")
 
 # ======================================================================
 #                          HISTÓRICO
@@ -317,7 +454,6 @@ if st.session_state["historico"]:
     df = pd.DataFrame(st.session_state["historico"])
     st.dataframe(df, use_container_width=True)
 
-    # EXPORTAÇÃO CSV (sempre funciona)
     csv = df.to_csv(index=False).encode("utf-8")
     col1, col2, col3 = st.columns(3)
 
@@ -329,7 +465,6 @@ if st.session_state["historico"]:
             mime="text/csv",
         )
 
-    # EXPORTAÇÃO EXCEL (com tratamento de erro)
     with col2:
         try:
             excel = BytesIO()
@@ -347,7 +482,6 @@ if st.session_state["historico"]:
                 "no ambiente (requirements.txt)."
             )
 
-    # BOTÃO LIMPAR HISTÓRICO
     with col3:
         if st.button("🧹 Limpar histórico"):
             st.session_state["historico"] = []

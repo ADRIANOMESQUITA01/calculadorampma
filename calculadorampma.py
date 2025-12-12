@@ -291,7 +291,7 @@ def tentar_converter_data(texto: str, nome_campo: str, chave_state: str) -> date
 # ------------------------------- SIDEBAR -------------------------------- #
 
 with st.sidebar:
-    st.title("🗓️ Calculadora de Datas")
+    st.title("🗓️ Calculadora de Datas da Vovó")
     st.markdown(
         """
         ➤ Digite sempre no formato **dd/mm/aaaa**  
@@ -313,7 +313,7 @@ with st.sidebar:
 st.markdown(
     """
     <div style="text-align:center;">
-        <h2>🗓️ Calculadora de Datas</h2>
+        <h2>🗓️ Calculadora de Datas da Vovó</h2>
         <p class="subtitle">
             Digite as datas, escolha o tipo de cálculo e clique em <b>CALCULAR</b>.
         </p>

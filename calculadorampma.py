@@ -38,7 +38,7 @@ section[data-testid="stSidebar"] {
 h2 {
     color: #111827;
     font-weight: 700;
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.1rem !important;
 }
 
 /* Subtítulo mais compacto */

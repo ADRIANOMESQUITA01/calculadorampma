@@ -215,6 +215,26 @@ def periodo_anos_meses_dias(data_inicial: date, data_final: date, inclusivo: boo
 
     return " (" + ", ".join(partes) + ")"
 
+def dias_para_anos_meses_dias(total_dias: int) -> str:
+    """
+    Converte dias para anos/meses/dias usando:
+    1 ano = 365 dias
+    1 mês = 30 dias
+    """
+    anos = total_dias // 365
+    resto = total_dias % 365
+    meses = resto // 30
+    dias = resto % 30
+
+    partes = []
+    if anos:
+        partes.append(f"{anos} ano{'s' if anos != 1 else ''}")
+    if meses:
+        partes.append(f"{meses} mês{'es' if meses != 1 else ''}")
+    # sempre mostra dias (mesmo 0)
+    partes.append(f"{dias} dia{'s' if dias != 1 else ''}")
+
+    return ", ".join(partes)
 
 # ---------------- CAMPO DE DATA COM MÁSCARA (RETORNA STRING) ----------- #
 
@@ -332,6 +352,7 @@ opcao = st.radio(
         "1 - Quantidade de dias entre duas datas",
         "2 - Data final (data inicial + quantidade de dias)",
         "3 - Data inicial (data final - quantidade de dias)",
+        "4 - Converter total de dias em anos, meses e dias",
     ]
 )
 
@@ -441,7 +462,7 @@ elif opcao.startswith("2"):
 #                     OPÇÃO 3 – DATA INICIAL
 # ======================================================================
 
-else:
+elif opcao.startswith("3"):
 
     st.subheader("Data inicial (data final - dias)")
 
@@ -474,6 +495,40 @@ else:
 
             botao_copiar(resultado)
             registrar_calculo("Data inicial (final - dias)", data_inicial, data_final, int(qtd), "Subtração")
+
+
+
+# ======================================================================
+#                     OPÇÃO 4 – DATA INICIAL
+# ======================================================================
+
+elif opcao.startswith("4"):
+
+    st.subheader("Converter total de dias em anos, meses e dias")
+
+    with st.form("form_op4"):
+        total_dias = st.number_input(
+            "Informe o total de dias:",
+            min_value=0,
+            value=0,
+            step=1
+        )
+        calcular = st.form_submit_button("🔵 CALCULAR")
+
+    if calcular:
+        total_dias_int = int(total_dias)
+        convertido = dias_para_anos_meses_dias(total_dias_int)
+
+        st.success(f"**{total_dias_int} dia(s)** equivalem a **{convertido}**")
+
+        resultado = (
+            "Conversão de dias para anos/meses/dias\n"
+            f"Total de dias: {total_dias_int}\n"
+            f"Equivalência (ano=365, mês=30): {convertido}"
+        )
+
+        botao_copiar(resultado)
+        registrar_calculo("Converter dias", None, None, total_dias_int, convertido)
 
 # ======================================================================
 #                          HISTÓRICO
